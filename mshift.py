@@ -1,4 +1,5 @@
 import sys
+import os
 import csv
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ from sklearn.cluster import MeanShift, estimate_bandwidth
 def main(input_train_, quantile_, n_samples_):
     #dataFrame = pd.read_csv(train_, parse_dates=[0], index_col=0, names=['Date_Time', 'Rate'], date_parser=lambda x: pd.to_datetime(x, format="%Y.%m.%d %H:%M:%S")) 
     # Import data
-    train_ = "C:\\Users\\Markus\\Documents\\GitHub\\ml_strat\\data\\tickdump\\" + input_train_    
+    train_ = "C:\\Users\\" + os.getlogin() +"\\Documents\\GitHub\\ml_strat\\data\\tickdump\\" + input_train_    
     dataFrame = pd.read_csv(train_, names=['Rate'])
     grouped_data = dataFrame.dropna()
     ticks_data = grouped_data
