@@ -20,7 +20,7 @@ void OnTick() {
     if(TimeCurrent() % save_mod == 0) {
         //Considering mean shift will only calibrate daily, the rest of the data will be discarded and therefore YYYY-MM-DD becomes superfluous. 
         string dt_str = TimeToStr(TimeCurrent(), TIME_DATE|TIME_SECONDS);
-        string to_csv = dt_str + "," + Bid;  
+        string to_csv = /*dt_str + "," + */Bid;  
         if(filehandle != INVALID_HANDLE) {
             FileSeek(filehandle, 0, SEEK_END); 
             FileWrite(filehandle, to_csv);
