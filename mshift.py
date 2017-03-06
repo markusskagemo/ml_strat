@@ -3,12 +3,13 @@ import os
 import csv
 import numpy as np
 import pandas as pd
-#import json
 from sklearn.cluster import MeanShift, estimate_bandwidth
+from getdayrates import getDayRates
 
 def main(input_train_, quantile_, n_samples_):
     #dataFrame = pd.read_csv(train_, parse_dates=[0], index_col=0, names=['Date_Time', 'Rate'], date_parser=lambda x: pd.to_datetime(x, format="%Y.%m.%d %H:%M:%S")) 
     # Import data
+    '''shorten following block using getdayrates'''
     train_ = "C:\\Users\\" + os.getlogin() +"\\Documents\\GitHub\\ml_strat\\data\\tickdump\\" + input_train_    
     dataFrame = pd.read_csv(train_, names=['Rate'])
     grouped_data = dataFrame.dropna()
