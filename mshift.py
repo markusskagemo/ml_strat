@@ -41,7 +41,7 @@ def main(input_train_, quantile_, n_samples_):
     print("ml_strat/clustering_return/<return_file.csv>")
 
 if __name__ == "__main__":
-    if (len(sys.argv) < 3):
+    if (len(sys.argv) < 3): #is not 3):
         print('python mshift.py <inputfile.csv>, <quantile>, <n_samples>')
         sys.exit(2)
     main(sys.argv[1], sys.argv[2], sys.argv[3])
