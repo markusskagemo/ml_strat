@@ -3,31 +3,30 @@ import subprocess
 import pandas as pd
 import os
 
-class getDayRates(): # object?
-    '''    
-    def __init__(self):
-        self.symbol = "EURUSD"
-        self.day = "2017-02-02" 
-    ''' 
+class getDayRates():
     def getDayRates(symbol_, day_):
-        return_code = subprocess.call('duka {} -d {} -f {} --header'
-                                .format(symbol_, day_, 'C:/Users/' + os.getlogin()
-                                +'/Documents/GitHub/ml_strat/data/tickdump/'), shell=True)
+        underscored_day = "{}_{}_{}".format(day_.split('-')[0], day_.split('-')[1], day_.split('-')[2])
+        RATEFILE = "{}-{}-{}.csv".format(symbol_, underscored_day, underscored_day)
+        RATEDIR =  "C:/Users/" + os.getlogin() +"/Documents/GitHub/ml_strat/data/tickdump/" + RATEFILE
         
-        if return_code == 0:
-            underscored_day = "{}_{}_{}".format(day_.split('-')[0], day_.split('-')[1], day_.split('-')[2])
-            file_to = symbol_ + "_" + underscored_day + "-" + underscored_day + ".csv"
-            print("\n\nSuccess! Saved csv at ~/GitHub/ml_strat/data/tickdump/" + file_to + "\n")
-            return("{}-{}-{}.csv".format(symbol_, underscored_day, underscored_day))
+        if os.path.isfile(RATEDIR):
+            return RATEFILE
         else:
-            print("\nFaulty execution. Check parameters.")
+            return_code = subprocess.call('duka {} -d {} -f {} --header'
+                                    .format(symbol_, day_, 'C:/Users/' + os.getlogin()
+                                    +'/Documents/GitHub/ml_strat/data/tickdump/'), shell=True)
+        
+            if return_code == 0:
+                print("\n\nTicks gotten. Saved csv at ~/GitHub/ml_strat/data/tickdump/" + RATEFILE + "\n")
+                return RATEFILE
+            else:
+                print("\nFaulty execution. Check parameters.")
                 
     def importRates(input_train_):
         # get bid column
         # throw everything else
-        # return list for bandwidth
-        train_ = "C:/Users/" + os.getlogin() +"/Documents/GitHub/ml_strat/data/tickdump/" + input_train_
-        df = pd.read_csv(train_,
+        TRAINDIR = "C:/Users/" + os.getlogin() +"/Documents/GitHub/ml_strat/data/tickdump/" + input_train_
+        df = pd.read_csv(TRAINDIR,
                          header=0, 
                          usecols=['bid'],
                          names=['datetime', 'bid', 'ask', 'bidvolume', 'askvolume'])
