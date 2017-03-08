@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 import csv
 import numpy as np
@@ -7,6 +6,14 @@ from getdayrates import getDayRates
 
 class mLearning():
     def importSupportResistance(symbol_, date_, quantile_, n_samples_):
+        def cleanLevelFloats(ml_results_): # Requires sorted list
+            '''
+            for i in range(1, int(len(ml_results_)/2)):
+                if ml_results_[i] - ml_results_[i-1] < 0.001:
+                    ml_results_.pop(i)
+            '''
+            return ml_results_
+            
         # Import data and convert to matrix for bandwidth
         input_train_ = getDayRates.getDayRates(symbol_, date_)
         rate_data = getDayRates.importRates(input_train_)
@@ -27,10 +34,12 @@ class mLearning():
                     rowstr = ' '.join(row) # Convert list to string
                     rowsplit = rowstr.split(",")
                     ml_results.append(rowsplit)
-                    
+                
                 ml_results_stripped = str(ml_results[0]).replace("'","").replace("[", "").replace("]", "")
                 ml_results_split = ml_results_stripped.split(",")
-                ml_results = [float(ml_results_split[elem]) for elem in range(len(ml_results_split))]
+                ml_results_floated = [float(ml_results_split[elem]) for elem in range(len(ml_results_split))]
+                ml_results_sorted = sorted(ml_results_floated)                
+                ml_results = cleanLevelFloats(ml_results_sorted)
                 
                 return ml_results
         else:
@@ -62,9 +71,6 @@ class mLearning():
             with open(SRDIR, 'w') as f:
                 wr = csv.writer(f, quoting=csv.QUOTE_NONE)
                 wr.writerow(rnd_ml_results)
-            
-            #np_mlres = np.array(rnd_ml_results, dtype=np.float64)
-            #np.savetxt(SRDIR, rnd_ml_results, delimiter=',')
-            
+
             print("\nS/R-levels saved at ml_strat/clustering_return/" + SRFILE + "\n")
-            return rnd_ml_results
+            return cleanLevelFloats(sorted(rnd_ml_results))
