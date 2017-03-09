@@ -5,26 +5,12 @@ from sklearn.cluster import MeanShift, estimate_bandwidth
 from getdayrates import getDayRates
 
 class mLearning():
-    def importSupportResistance(symbol_, date_, quantile_, n_samples_):
+    def importSupportResistance(symbol_, date_, quantile_, n_samples_): #Exports cluster extremals
         def cleanLevelFloats(ml_results_): # Requires sorted list
-            
-            ml_results = []
-            ml_iter = range(0, len(ml_results_)-1)
-            skip = False
-            
-            for i in ml_iter:
-                if skip == True:
-                    skip = False
-                    continue
-                elif len(ml_results) >= 1 and i >= 1 and ml_results_[i-1] == ml_results[len(ml_results)-1]:
-                    print(ml_results[len(ml_results)-1])
-                    ml_results.append(ml_results_[i])
-                    skip = False
-                if ml_results_[i] - ml_results_[i+1] < 0.001:
-                    print(ml_results_[i])
-                    skip = True
-                    
-            return ml_results
+            for i in range(1, len(ml_results_)-1):
+                if ml_results_[i] - ml_results_[i-1] < 0.001 or ml_results_[i+1] - ml_results_[i-1] < 0.001:
+                    ml_results_[i] = 0
+            return list(filter(lambda a: a != 0, ml_results_))
             
         # Import data and convert to matrix for bandwidth
         input_train_ = getDayRates.getDayRates(symbol_, date_)
@@ -50,8 +36,12 @@ class mLearning():
                 ml_results_stripped = str(ml_results[0]).replace("'","").replace("[", "").replace("]", "")
                 ml_results_split = ml_results_stripped.split(",")
                 ml_results_floated = [float(ml_results_split[elem]) for elem in range(len(ml_results_split))]
-                ml_results_sorted = sorted(ml_results_floated)                
-                ml_results = cleanLevelFloats(ml_results_sorted)
+                ml_results_sorted = sorted(ml_results_floated)
+                #
+                for i in range(len(ml_results_sorted)):
+                    print(ml_results_sorted[i])
+                #
+                ml_results = cleanLevelFloats(cleanLevelFloats(cleanLevelFloats(ml_results_sorted)))
                 
                 return ml_results
         else:

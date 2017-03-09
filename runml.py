@@ -8,5 +8,5 @@ def main(symbol_, date_, quantile_, n_samples_):
         print(ml_results[i])
         
 if __name__ == "__main__":
-    main("EURUSD", "2017-01-06", 0.01, 2000)
+    main("EURUSD", "2017-01-18", 0.15, 2000)
     
