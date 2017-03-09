@@ -5,13 +5,22 @@ from sklearn.cluster import MeanShift, estimate_bandwidth
 from getdayrates import getDayRates
 
 class mLearning():
-    def importSupportResistance(symbol_, date_, quantile_, n_samples_): #Exports cluster extremals
-        def cleanLevelFloats(ml_results_): # Requires sorted list
-            for i in range(1, len(ml_results_)-1):
-                if ml_results_[i] - ml_results_[i-1] < 0.001 or ml_results_[i+1] - ml_results_[i-1] < 0.001:
-                    ml_results_[i] = 0
-            return list(filter(lambda a: a != 0, ml_results_))
-            
+    #Exports cluster extremals
+    def importSupportResistance(symbol_, date_, quantile_, n_samples_):
+        
+        # Removes values that are too close. Requires sorted list
+        def cleanLevelFloats(ml_results_):
+            for j in range(100):
+                last_results = ml_results_
+                for i in range(1, len(ml_results_)-1):
+                    # 0.001 is for symbols with a normal range within <0,10>. Multiply for f.ex. USDJPY
+                    if ml_results_[i] - ml_results_[i-1] < 0.001 or ml_results_[i+1] - ml_results_[i-1] < 0.001:
+                        ml_results_[i] = 0
+                ml_results_ = list(filter(lambda a: a != 0, ml_results_))
+                if last_results == ml_results_:
+                    break
+            return ml_results_
+        
         # Import data and convert to matrix for bandwidth
         input_train_ = getDayRates.getDayRates(symbol_, date_)
         rate_data = getDayRates.importRates(input_train_)
@@ -46,8 +55,10 @@ class mLearning():
                 return ml_results
         else:
             # Calculate bandwidth and fit data
-            bandwidth = estimate_bandwidth(bw_data, quantile=float(quantile_), n_samples=int(n_samples_)) # Greater quantile greater sample size. estimate_bandwidth for faster MeanShift processing
-            ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, n_jobs=-2) # Bin seeding for increased execution speed but fewer seeds, n_jobs=-2 for all but one active cpu core
+            # Greater quantile greater sample size. estimate_bandwidth for faster MeanShift processing
+            bandwidth = estimate_bandwidth(bw_data, quantile=float(quantile_), n_samples=int(n_samples_)) 
+            # Bin seeding for increased execution speed but fewer seeds, n_jobs=-2 for all but one active cpu core
+            ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, n_jobs=-2)
             ms.fit(rate_data)
             
             # Append maximas of all clusters to S/R array
@@ -55,7 +66,6 @@ class mLearning():
             for k in range(len(np.unique(ms.labels_))):
                 members = ms.labels_ == k
                 values = bw_data[members, 0]
-                #print(values)
                 ml_results.append(min(values))
                 ml_results.append(max(values))
             

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# I don't know which to import
+# Which one?
 import oandapyv20 as v20
 #import v20
 
