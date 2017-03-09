@@ -7,12 +7,24 @@ from getdayrates import getDayRates
 class mLearning():
     def importSupportResistance(symbol_, date_, quantile_, n_samples_):
         def cleanLevelFloats(ml_results_): # Requires sorted list
-            '''
-            for i in range(1, int(len(ml_results_)/2)):
-                if ml_results_[i] - ml_results_[i-1] < 0.001:
-                    ml_results_.pop(i)
-            '''
-            return ml_results_
+            
+            ml_results = []
+            ml_iter = range(0, len(ml_results_)-1)
+            skip = False
+            
+            for i in ml_iter:
+                if skip == True:
+                    skip = False
+                    continue
+                elif len(ml_results) >= 1 and i >= 1 and ml_results_[i-1] == ml_results[len(ml_results)-1]:
+                    print(ml_results[len(ml_results)-1])
+                    ml_results.append(ml_results_[i])
+                    skip = False
+                if ml_results_[i] - ml_results_[i+1] < 0.001:
+                    print(ml_results_[i])
+                    skip = True
+                    
+            return ml_results
             
         # Import data and convert to matrix for bandwidth
         input_train_ = getDayRates.getDayRates(symbol_, date_)
