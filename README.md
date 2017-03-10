@@ -12,15 +12,15 @@ from ordercompute import orderCompute
 ```
 
 ```{.python .input  n=2}
-    class to_self():
-        pass
-    ts = to_self()
-    ts.symbol = 'EURUSD'
-    ts.quantile = 0.1
-    ts.n_samples = 2000
-    ts.date = '2017-03-10'
-    
-    sr_levels = orderCompute(ts).newSR()
+class to_self():
+    pass
+ts = to_self()
+ts.symbol = 'EURUSD'
+ts.quantile = 0.1
+ts.n_samples = 2000
+ts.date = '2017-03-10'
+
+sr_levels = orderCompute(ts).newSR()
 ```
 
 ```{.python .input  n=25}
