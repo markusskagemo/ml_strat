@@ -37,10 +37,11 @@ rate_data = getDayRates.importRates(input_train_)
 for i in range(len(sr_levels)):
     plt.plot((0, len(rate_data)), (sr_levels[i], sr_levels[i]), 'r--')
 
-#for j in range(len(rate_data)):
 plt.plot(rate_data, '#434343')
 
 plt.ylabel('EURUSD')
 plt.xlabel(prior_date + ' (ticks)')
 plt.show()
 ```
+
+![](data/visualization/SRplot.png)
