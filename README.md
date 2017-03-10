@@ -1,6 +1,6 @@
 ### Determining support & resistance levels using mean shift clustering
 The following notebook shows some of this repos functionality,
-including getting and storing tickdata for all tickers available on Dukascopy
+including getting and storing tickdata for all tickers available on Dukascopy  
 A clustering algorithm determines S/R-levels, sorts them, filters them, and
 plots them.
 
