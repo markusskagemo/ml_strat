@@ -40,5 +40,6 @@ plt.show()
 ```
 *The amount of levels corresponds to the quantile parameter*  
 ![The amount of levels corresponds to the quantile parameter](data/visualization/SRplot.png)  
+  
 *Another example with a larger quantile*  
 ![Another example with a larger quantile](data/visualization/srplot_2017-03-01.png)  
