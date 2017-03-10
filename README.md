@@ -16,10 +16,6 @@ from ordercompute import orderCompute
     class to_self():
         pass
     ts = to_self()
-    #ts.time = datetime.time
-    ts.bid = 1.1060
-    ts.lp = 1.1083
-    ts.ltp = 1.1059
     ts.symbol = 'EURUSD'
     ts.quantile = 0.1
     ts.n_samples = 2000
