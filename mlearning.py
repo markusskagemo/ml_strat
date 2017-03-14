@@ -46,10 +46,12 @@ class mLearning():
                 ml_results_split = ml_results_stripped.split(",")
                 ml_results_floated = [float(ml_results_split[elem]) for elem in range(len(ml_results_split))]
                 ml_results_sorted = sorted(ml_results_floated)
-                '''
+                
+                print("-------------------------\n\tS/R-levels\n-------------------------")
                 for i in range(len(ml_results_sorted)):
                     print(ml_results_sorted[i])
-                '''
+                print('\n')
+                
                 ml_results = cleanLevelFloats(ml_results_sorted)
                 
                 return ml_results
