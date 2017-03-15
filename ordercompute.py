@@ -1,6 +1,7 @@
 from mlearning import mLearning
 import datetime
 import calendar
+from bisect import bisect_left
 
 # Import bid depending on backtesting or forwardtesting, as forwardtesting requires broker communication
 class orderCompute(object):
@@ -18,17 +19,71 @@ class orderCompute(object):
     
     #---#
     
+    # Returns value in list closest to input number_. Requires sorted list
+    def takeClosest(list_, number_):
+        if len(list_) > 0:
+            pos = bisect_left(list_, number_)
+            if pos == 0:
+                return list_[0]
+            if pos == len(list_):
+                return list_[-1]
+            before = list_[pos - 1]
+            after = list_[pos]
+            if after - number_ < number_ - before:
+               return after
+            else:
+               return before
+        else:
+            return 0
+        
     def getLastDate(date):
+        # Thanks to Arnaldo P. Figueira
+        def weekDay(year, month, day):
+            offset = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+            afterFeb = 1
+            if month > 2: afterFeb = 0
+            aux = year - 1700 - afterFeb
+            # dayOfWeek for 1700/1/1 = 5, Friday
+            dayOfWeek  = 5
+            # Partial sum of days betweem current date and 1700/1/1
+            dayOfWeek += (aux + afterFeb) * 365                  
+            # Leap year correction    
+            dayOfWeek += aux / 4 - aux / 100 + (aux + 100) / 400     
+            # Sum monthly and day offsets
+            dayOfWeek += offset[month - 1] + (day - 1)               
+            dayOfWeek %= 7
+            #
+            #print(dayOfWeek)
+            #
+            return int(round(dayOfWeek, 0))
+        
         date = str(date).strip("(),'")
         datesplit = date.split('-')
+        #if datesplit[2] != '00':
         prior_date = '{}-{}-{}'.format(datesplit[0], datesplit[1], str(int(datesplit[2])-1).zfill(2))
+
+        datesplit = prior_date.split('-')
+        if weekDay(int(datesplit[0]), int(datesplit[1]), int(datesplit[2])) == 0:
+            prior_date = '{}-{}-{}'.format(datesplit[0], datesplit[1], str(int(datesplit[2])-2).zfill(2))
+            datesplit = prior_date.split('-')
+        if weekDay(int(datesplit[0]), int(datesplit[1]), int(datesplit[2])) == 6:
+            prior_date = '{}-{}-{}'.format(datesplit[0], datesplit[1], str(int(datesplit[2])-1).zfill(2))
+            print(prior_date)
+
+        datesplit = prior_date.split('-')
         if datesplit[2] == '00': 
-            if date.month != 1:
-                prior_date = date.replace(day = calendar.monthrange(date.year, int(date.month)-1)[1])
-            elif date.month == 1:
-                prior_date = date.replace(day = 31, year = int(date.year)-1)
+            if datesplit[1] != '1':
+                if int(datesplit[1])-1 != 2:
+                    if int(datesplit[2]) % 2 == 0:
+                        prior_date = '{}-{}-{}'.format(datesplit[0], str(int(datesplit[1])-1).zfill(2), '30')
+                    else:
+                        prior_date = '{}-{}-{}'.format(datesplit[0], str(int(datesplit[1])-1).zfill(2), '31')
+                else:
+                    prior_date = '{}-{}-{}'.format(datesplit[0], str(int(datesplit[1])-1).zfill(2), '28')
+            else:
+                prior_date = '{}-{}-{}'.format(str(int(datesplit[0])-1), '12', '31')
         
-        return prior_date
+        return str(prior_date)
     
     # Returns list to act on. 0 = short, 1 = long, 2 = opened/inactive   
     def pendingMatrix(bid, latest_position, sr_levels): # latest_position tells which sr level bid touched last
@@ -43,22 +98,14 @@ class orderCompute(object):
             return pM
                     
     def newSR(self):
-        # Compute date = current date - 1
+        # Compute date
         print(self.date)
         prior_date = orderCompute.getLastDate(self.date)
         print(prior_date)
-        #datesplit = self.date.split('-')
-        #prior_date = '{}-{}-{}'.format(datesplit[0], datesplit[1], str(int(datesplit[2])-1).zfill(2))
-        #calculated = False
-        #if calculated == False: #self.time.hour()*60 + self.time.minute() < 60 and calculated == False:
         sr_levels = mLearning.importSupportResistance(self.symbol, prior_date, self.quantile, self.n_samples)
-        #self.calculated = True
+
         return sr_levels
-    '''
-        if self.time.hour() == 1:
-            self.calculated == False
-        return 0
-    '''
+    
     #---#
     
     def updatePending(self): #(self) replace
