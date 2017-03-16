@@ -8,11 +8,12 @@ import sys  # To find out the script name (in argv[0])
 import backtrader as bt
 
 class SRStrategy(bt.Strategy):
-    '''
+    
     params = (
-        (''),
+        ('target_q', 0.8),
+        ('stop_q', 1.2)
     )
-    '''
+    
     
     def log(self, txt, dt=None):
         ''' Logging function for this strategy'''
@@ -29,8 +30,10 @@ class SRStrategy(bt.Strategy):
         self.buycomm = None
         self.isImported = False
         self.x = -1
-        self.target = 100
-        self.stop = 100
+        self.longtarget = 100
+        self.longstop = 100
+        self.shorttarget = 100
+        self.shortstop = 100
         self.levelhistory = [0]*3
         self.opendate = self.data.datetime.date()
         self.ordertype = None
@@ -50,27 +53,6 @@ class SRStrategy(bt.Strategy):
         if order.status in [order.Submitted, order.Accepted]:
             # Buy/Sell order submitted/accepted to/by broker - Nothing to do
             return
-        '''
-        # Check if an order has been completed
-        # Attention: broker could reject order if not enougth cash
-        if order.status in [order.Completed, order.Canceled, order.Margin]:
-            if order.isbuy():
-                self.log(
-                    'BUY EXECUTED, Price: %.4f, Cost: %.2f, Comm %.2f' %
-                    (order.executed.price,
-                     order.executed.value,
-                     order.executed.comm))
-
-                self.buyprice = order.executed.price
-                self.buycomm = order.executed.comm
-            else:  # Sell
-                self.log('SELL EXECUTED, Price: %.4f, Cost: %.2f, Comm %.2f' %
-                         (order.executed.price,
-                          order.executed.value,
-                          order.executed.comm))
-        
-            self.bar_executed = len(self)
-        '''
         # Write down: no pending order
         self.order = None
 
@@ -112,42 +94,56 @@ class SRStrategy(bt.Strategy):
             self.levelhistory.insert(0, closestlevel)
         
         # Check if we are in the market
-        if not self.position or self.opendate != self.data.datetime.date():
-            if self.data.datetime.time() > datetime.time(0, 10):
-                if closestlevel != max(self.srlevels):
+        if not self.position: #or self.opendate != self.data.datetime.date():
+            if self.data.datetime.time() > datetime.time(0, 2):
+                if closestlevel != max(self.srlevels): # > redundant
                     # > Get OHLC, in this case L
                     if self.levelhistory[1] >= self.levelhistory[0] and self.dataclose[0] <= self.levelhistory[0]:
-                        self.log('BUY CREATE, %.4f' % self.dataclose[0])
-                        self.target = self.srlevels[self.srlevels.index(closestlevel)+1]
-                        self.stop = self.dataclose[0] - (self.target - self.dataclose[0])
+                        self.log('LONG CREATE, %.4f' % self.dataclose[0])
+                        self.longtarget = self.dataclose[0] + (self.srlevels[self.srlevels.index(closestlevel)+1] - 
+                                                               self.dataclose[0])*float(self.p.target_q)
+                        self.longstop = self.dataclose[0] - (self.longtarget - self.dataclose[0])*float(self.p.stop_q)
                         self.opendate = self.data.datetime.date()
                         self.order = self.buy()
-                        self.ordertype = 'Buy'
-                elif closestlevel != min(self.srlevels):
+                        self.ordertype = 'Long'
+                        
+                        print(self.longtarget)
+                        print(self.dataclose[0])
+                        print(self.longstop)
+                        
+                if closestlevel != min(self.srlevels): # > redundant
                     if self.levelhistory[1] <= self.levelhistory[0] and self.dataclose[0] >= self.levelhistory[0]:
-                        self.log('SELL CREATE, %.4f' % self.dataclose[0])
-                        self.target = self.srlevels[self.srlevels.index(closestlevel)-1]
-                        self.stop = self.dataclose[0] + (self.dataclose[0] - self.target)
+                        self.log('SHORT CREATE, %.4f' % self.dataclose[0])
+                        self.shorttarget = self.dataclose[0] - (self.dataclose[0] - 
+                                                                self.srlevels[self.srlevels.index(closestlevel)-1])*float(self.p.target_q)
+                        self.shortstop = self.dataclose[0] + (self.dataclose[0] - self.shorttarget)*float(self.p.stop_q)
                         self.opendate = self.data.datetime.date()
                         self.order = self.sell()
-                        self.ordertype = 'Sell'
+                        self.ordertype = 'Short'
+                
         else:
             # > Close 'types' of orders, not every order over/under a threshold.
             # > Ex. only one self.ordertype active /zone, but multiple orders of different direction open simultaniously.
-            if self.ordertype == 'Buy':
-                if self.dataclose[0] >= self.target or self.dataclose[0] <= self.stop: #or 
-                    self.log('POSITION CLOSE, %.4f' % self.dataclose[0])
+            if self.ordertype == 'Long': # and not order.isbuy():
+                if self.dataclose[0] >= self.longtarget or self.dataclose[0] <= self.longstop: #or 
+                    self.log('LONG POSITION CLOSE, %.4f' % self.dataclose[0])
                     self.order = self.close()
-            elif self.ordertype == 'Sell':
-                if self.dataclose[0] <= self.target or self.dataclose[0] >= self.stop:
-                    self.log('POSITION CLOSE, %.4f' % self.dataclose[0])
+            elif self.ordertype == 'Short': #and not self.order.issell():
+                if self.dataclose[0] <= self.shorttarget or self.dataclose[0] >= self.shortstop:
+                    self.log('SHORT POSITION CLOSE, %.4f' % self.dataclose[0])
                     self.order = self.close()
                     
 if __name__ == '__main__':
     cerebro = bt.Cerebro()
 
     cerebro.addstrategy(SRStrategy)
-    #strats = cerebro.optstrategy(SRStrategy)
+    '''
+    cerebro.optstrategy(
+        SRStrategy,
+        target_q=range(8, 10, 2),
+        stop_q=range(10, 12, 2),
+    )
+    '''
 
     #modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
     #datapath = os.path.join(modpath, '../../datas/orcl-1995-2014.txt')
@@ -157,7 +153,7 @@ if __name__ == '__main__':
     data = bt.feeds.GenericCSVData(
         dataname=datapath,
         fromdate=datetime.datetime(2016, 3, 2),
-        todate=datetime.datetime(2016, 12, 31),
+        todate=datetime.datetime(2016, 4, 30),
         timeframe=bt.TimeFrame.Minutes,
         dtformat='%d.%m.%Y %H:%M:%S.000')
 
@@ -165,12 +161,12 @@ if __name__ == '__main__':
     cerebro.broker.setcash(100000.0)
     print('Starting Portfolio Value: %.4f' % cerebro.broker.getvalue())
     
-    cerebro.addsizer(bt.sizers.FixedSize, stake=10000)
-    cerebro.broker.setcommission(commission=0.001)
+    cerebro.addsizer(bt.sizers.FixedSize, stake=90000)
+    cerebro.broker.setcommission(commission=0.0001)
     
     # Run over everything
     cerebro.run()
-    cerebro.plot()
+    #cerebro.plot()
 
     # Print out the final result
     print('Final Portfolio Value: %.4f' % cerebro.broker.getvalue())
