@@ -22,36 +22,62 @@ class SRStrategy(bt.Strategy):
     def __init__(self):
         # Keep a reference to the "close" line in the data[0] dataseries
         self.dataclose = self.datas[0].close
+        self.datalow = self.datas[0].low
+        self.datahigh = self.datas[0].high
         
-        self.fromdate = datetime.datetime(2016, 3, 2)
+        self.fromdate = datetime.datetime(2016, 3, 2) #
         self.order = None
         self.buyprice = None
         self.buycomm = None
-        self.isImported = False
-        self.x = -1
-        self.longtarget = 100
-        self.longstop = 100
-        self.shorttarget = 100
-        self.shortstop = 100
-        self.levelhistory = [0]*4
-        self.opendate = self.data.datetime.date()
-        self.ordertype = None
+        self.isImported = False #
+        self.x = -1 #
+        self.longtarget = 100 #
+        self.longstop = 100 #
+        self.shorttarget = 100 #
+        self.shortstop = 100 #
+        self.levelhistory = [0]*4 #
+        self.opendate = self.data.datetime.date() #
+        self.ordertype = None #
         
         class mshiftParams(): # > Pass msP as function instead?
             pass
-        self.msP = mshiftParams()
+        self.msP = mshiftParams() #
         self.msP.time = self.data.datetime.time(0).isoformat()
         self.msP.date = str(self.fromdate).split(' ')[0]
         self.msP.symbol = 'EURUSD'
         self.msP.quantile = 0.15
         self.msP.n_samples = 500
 
-        self.srlevels = orderCompute(self.msP).newSR()
+        self.srlevels = orderCompute(self.msP).newSR() #
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
             # Buy/Sell order submitted/accepted to/by broker - Nothing to do
             return
+
+        # Check if an order has been completed
+        # Attention: broker could reject order if not enougth cash
+        if order.status in [order.Completed, order.Canceled, order.Margin]:
+            '''
+            if order.isbuy():
+                self.log(
+                    'BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                    (order.executed.price,
+                     order.executed.value,
+                     order.executed.comm))
+
+                self.buyprice = order.executed.price
+                self.buycomm = order.executed.comm
+            else:  # Sell
+                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+            '''
+            self.bar_executed = len(self)
+
+        # Write down: no pending order
+        self.order = None
         # Write down: no pending order
         self.order = None
 
@@ -95,7 +121,7 @@ class SRStrategy(bt.Strategy):
         # Check if we are in the market
         if (not self.position and len(self.srlevels) > 2 
             and self.dataclose[-1] != self.dataclose[0]): #or self.opendate != self.data.datetime.date():
-            if self.data.datetime.time() > datetime.time(0, 2):
+            if self.data.datetime.time() > datetime.time(0, 2) and self.ordertype == None:
                 if closestlevel != max(self.srlevels): # > redundant
                     # > Get OHLC, in this case L
                     if self.levelhistory[1] > self.levelhistory[0] and self.dataclose[0] <= self.levelhistory[0]:
@@ -103,9 +129,10 @@ class SRStrategy(bt.Strategy):
                                                                self.dataclose[0])*float(self.p.target_q)
                         self.longstop = self.dataclose[0] - (self.longtarget - self.dataclose[0])*float(self.p.stop_q)
                         self.opendate = self.data.datetime.date()
-                        #self.order = self.buy()
-                        self.log('LONG CREATE, %.4f' % self.dataclose[0])
+                        self.order = self.buy()
+                        self.log('LONG CREATE, %.4f, T:%.4f, SL:%.4f' % (self.dataclose[0], self.longtarget, self.longstop))
                         self.ordertype = 'Long'
+                        
                         '''
                         print(self.longtarget)
                         print(self.dataclose[0])
@@ -118,7 +145,7 @@ class SRStrategy(bt.Strategy):
                         self.shortstop = self.dataclose[0] + (self.dataclose[0] - self.shorttarget)*float(self.p.stop_q)/10.0
                         self.opendate = self.data.datetime.date()
                         self.order = self.sell()
-                        self.log('SHORT CREATE, %.4f' % self.dataclose[0])
+                        self.log('SHORT CREATE, %.4f, T:%.4f, SL:%.4f' % (self.dataclose[0], self.shorttarget, self.shortstop))
                         self.ordertype = 'Short'
                 
         else:
@@ -128,10 +155,16 @@ class SRStrategy(bt.Strategy):
                 if self.dataclose[0] >= self.longtarget or self.dataclose[0] <= self.longstop: #or 
                     self.log('LONG POSITION CLOSE, %.4f' % self.dataclose[0])
                     self.order = self.close()
+                    self.ordertype = None
             elif self.ordertype == 'Short': #and not self.order.issell():
                 if self.dataclose[0] <= self.shorttarget or self.dataclose[0] >= self.shortstop:
                     self.log('SHORT POSITION CLOSE, %.4f' % self.dataclose[0])
                     self.order = self.close()
+                    self.ordertype = None
+            elif self.data.datetime.time() < datetime.time(0, 2):
+                self.log('POSITION FORCE CLOSE, %.4f' % self.dataclose[0])
+                self.order = self.close()
+                self.ordertype = None
                     
 if __name__ == '__main__':
     cerebro = bt.Cerebro()
@@ -152,8 +185,8 @@ if __name__ == '__main__':
     # Create a Data Feed
     data = bt.feeds.GenericCSVData(
         dataname=datapath,
-        fromdate=datetime.datetime(2016, 5, 2),
-        todate=datetime.datetime(2016, 7, 30),
+        fromdate=datetime.datetime(2016, 3, 2),
+        todate=datetime.datetime(2016, 4, 30),
         timeframe=bt.TimeFrame.Minutes,
         dtformat='%d.%m.%Y %H:%M:%S.000')
 
@@ -162,7 +195,7 @@ if __name__ == '__main__':
     print('Starting Portfolio Value: %.4f' % cerebro.broker.getvalue())
     
     cerebro.addsizer(bt.sizers.FixedSize, stake=90000)
-    #cerebro.broker.setcommission(commission=0.0001)
+    cerebro.broker.setcommission(commission=0.00001)
     
     # Run over everything
     cerebro.run()
