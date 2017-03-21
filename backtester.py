@@ -6,12 +6,14 @@ import datetime  # For datetime objects
 import os.path  # To manage paths
 import sys  # To find out the script name (in argv[0])
 import backtrader as bt
+import pyfolio as pf
+%matplotlib inline
 
 class SRStrategy(bt.Strategy):
     
     params = (
-        ('target_q', 9),
-        ('stop_q', 5)
+        ('target_q', 10),
+        ('stop_q', 6),
     )
     
     def log(self, txt, dt=None):
@@ -94,6 +96,7 @@ class SRStrategy(bt.Strategy):
         # Recalibrate S/R at midnight
         if datetime.time(0, 1) < self.data.datetime.time() < datetime.time(0, 10) and self.isImported == False:
             self.srlevels = orderCompute(self.msP).newSR()
+            # > Append to master array with range of entire testing period
             self.isImported = True
         if self.data.datetime.time() == datetime.time(0, 11):
             self.isImported = False
@@ -110,8 +113,8 @@ class SRStrategy(bt.Strategy):
         
         # Get last relevant level touch point
         # > For live, try to get open data or OHLC to reduce requests
-        if ((self.dataclose[-1] <= closestlevel <= self.dataclose[0] or 
-            self.dataclose[-1] >= closestlevel >= self.dataclose[0]) and 
+        if ((self.datalow[0] <= closestlevel <= self.dataclose[0] or 
+            self.datahigh[0] >= closestlevel >= self.dataclose[0]) and 
             self.levelhistory[0] != closestlevel):
             # remove last
             self.levelhistory.pop(3)
@@ -121,31 +124,30 @@ class SRStrategy(bt.Strategy):
         # Check if we are in the market
         if (not self.position and len(self.srlevels) > 2 
             and self.dataclose[-1] != self.dataclose[0]): #or self.opendate != self.data.datetime.date():
-            if self.data.datetime.time() > datetime.time(0, 2) and self.ordertype == None:
+            if (self.data.datetime.time() > datetime.time(0, 2)
+                and self.ordertype == None 
+                and min(self.srlevels) <= self.dataclose[0] <= max(self.srlevels)):
+                
                 if closestlevel != max(self.srlevels): # > redundant
                     # > Get OHLC, in this case L
                     if self.levelhistory[1] > self.levelhistory[0] and self.dataclose[0] <= self.levelhistory[0]:
-                        self.longtarget = self.dataclose[0] + (self.srlevels[self.srlevels.index(closestlevel)+1] - 
-                                                               self.dataclose[0])*float(self.p.target_q)
-                        self.longstop = self.dataclose[0] - (self.longtarget - self.dataclose[0])*float(self.p.stop_q)
+                        self.longtarget = (self.dataclose[0] + 
+                                         (self.srlevels[self.srlevels.index(closestlevel)+1] - self.dataclose[0])*float(self.p.target_q)/10.0)
+                        self.longstop = (self.dataclose[0] - (self.srlevels[self.srlevels.index(closestlevel)+1] - 
+                                                              self.dataclose[0])*float(self.p.stop_q))
                         self.opendate = self.data.datetime.date()
                         self.order = self.buy()
-                        self.log('LONG CREATE, %.4f, T:%.4f, SL:%.4f' % (self.dataclose[0], self.longtarget, self.longstop))
+                        self.log('LONG CREATE, P:%.4f, T:%.4f, SL:%.4f' % (self.dataclose[0], self.longtarget, self.longstop))
                         self.ordertype = 'Long'
-                        
-                        '''
-                        print(self.longtarget)
-                        print(self.dataclose[0])
-                        print(self.longstop)
-                        '''
-                        
+
                 if closestlevel != min(self.srlevels): # > redundant
                     if self.levelhistory[1] < self.levelhistory[0] and self.dataclose[0] >= self.levelhistory[0]:
-                        self.shorttarget = self.dataclose[0] - (self.dataclose[0] - self.srlevels[self.srlevels.index(closestlevel)-1])*float(self.p.target_q)/10.0
+                        self.shorttarget = (self.dataclose[0] - (self.dataclose[0] - 
+                                                                self.srlevels[self.srlevels.index(closestlevel)-1])*float(self.p.target_q)/10.0)
                         self.shortstop = self.dataclose[0] + (self.dataclose[0] - self.shorttarget)*float(self.p.stop_q)/10.0
                         self.opendate = self.data.datetime.date()
                         self.order = self.sell()
-                        self.log('SHORT CREATE, %.4f, T:%.4f, SL:%.4f' % (self.dataclose[0], self.shorttarget, self.shortstop))
+                        self.log('SHORT CREATE, P:%.4f, T:%.4f, SL:%.4f' % (self.dataclose[0], self.shorttarget, self.shortstop))
                         self.ordertype = 'Short'
                 
         else:
@@ -161,11 +163,41 @@ class SRStrategy(bt.Strategy):
                     self.log('SHORT POSITION CLOSE, %.4f' % self.dataclose[0])
                     self.order = self.close()
                     self.ordertype = None
-            elif self.data.datetime.time() < datetime.time(0, 2):
-                self.log('POSITION FORCE CLOSE, %.4f' % self.dataclose[0])
-                self.order = self.close()
-                self.ordertype = None
-                    
+        # Calibrates SL and TP according to new SR-levels if trade was opened another day
+        if self.opendate < self.data.datetime.date():
+            if self.ordertype == 'Long':
+                if closestlevel < self.dataclose[0]:
+                    # Avoid index surpassing
+                    if closestlevel != max(self.srlevels):
+                        self.longtarget = (self.dataclose[0] + 
+                                          (self.srlevels[self.srlevels.index(closestlevel)+1] - self.dataclose[0])*float(self.p.target_q)/10.0)
+                    self.longstop = closestlevel
+                else:
+                    self.longtarget = closestlevel
+                    # Avoid index surpassing
+                    if closestlevel != min(self.srlevels):
+                        self.longstop = self.srlevels[self.srlevels.index(closestlevel)-1]
+                    else:
+                        self.longstop = 2*closestlevel - self.srlevels[self.srlevels.index(closestlevel)+1]
+                        
+            elif self.ordertype == 'Short':
+                if closestlevel > self.dataclose[0]:
+                    if closestlevel != min(self.srlevels):
+                        self.shorttarget = (self.dataclose[0] - 
+                                           (self.dataclose[0] - self.srlevels[self.srlevels.index(closestlevel)-1])*float(self.p.target_q)/10.0)
+                    self.shortstop = closestlevel
+                else:
+                    self.shorttarget = closestlevel
+                    if closestlevel != max(self.srlevels):
+                        self.shortstop = self.srlevels[self.srlevels.index(closestlevel)+1]
+                    else:
+                        self.shortstop = 2*closestlevel + self.srlevels[self.srlevels.index(closestlevel)-1]
+    '''
+    def stop(self):
+        self.log('Ending Value %.2f' %
+                 self.broker.getvalue(), doprint=True)
+    '''   
+    
 if __name__ == '__main__':
     cerebro = bt.Cerebro()
 
@@ -173,8 +205,8 @@ if __name__ == '__main__':
     '''
     cerebro.optstrategy(
         SRStrategy,
-        target_q=range(8, 12),
-        stop_q=range(8, 20, 2),
+        target_q=range(5, 12),
+        stop_q=range(2, 7),
     )
     '''
 
@@ -186,7 +218,7 @@ if __name__ == '__main__':
     data = bt.feeds.GenericCSVData(
         dataname=datapath,
         fromdate=datetime.datetime(2016, 3, 2),
-        todate=datetime.datetime(2016, 4, 30),
+        todate=datetime.datetime(2016, 3, 20),
         timeframe=bt.TimeFrame.Minutes,
         dtformat='%d.%m.%Y %H:%M:%S.000')
 
@@ -195,11 +227,23 @@ if __name__ == '__main__':
     print('Starting Portfolio Value: %.4f' % cerebro.broker.getvalue())
     
     cerebro.addsizer(bt.sizers.FixedSize, stake=90000)
-    cerebro.broker.setcommission(commission=0.00001)
+    cerebro.broker.setcommission(commission=0.0)
+    cerebro.addanalyzer(bt.analyzers.PyFolio)
     
     # Run over everything
-    cerebro.run()
+    results = cerebro.run()
     #cerebro.plot()
-
+    
     # Print out the final result
     print('Final Portfolio Value: %.4f' % cerebro.broker.getvalue())
+    strat = results[0]
+    pyfoliozer = strat.analyzers.getbyname('pyfolio')
+    returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
+    
+    pf.create_full_tear_sheet(
+    returns,
+    positions=positions,
+    transactions=transactions,
+    #gross_lev=1000,#gross_lev,
+    live_start_date='2016-03-17',  # This date is sample specific
+    round_trips=True)

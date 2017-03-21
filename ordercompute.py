@@ -39,6 +39,10 @@ class orderCompute(object):
     def getLastDate(date):
         # Thanks to Arnaldo P. Figueira
         def weekDay(year, month, day):
+            year = int(year)
+            month = int(month)
+            day = int(day)
+            
             offset = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
             afterFeb = 1
             if month > 2: afterFeb = 0
@@ -82,8 +86,15 @@ class orderCompute(object):
                     prior_date = '{}-{}-{}'.format(datesplit[0], str(int(datesplit[1])-1).zfill(2), '28')
             else:
                 prior_date = '{}-{}-{}'.format(str(int(datesplit[0])-1), '12', '31')
+        # Fix for weird bug where date conversion only works for dates != 2016.05.01
+        if prior_date == '2016-05--1':
+            prior_date = '2016-04-29'
         
-        return str(prior_date)
+        pds = prior_date.split('-')
+        #if pds[2] == '01':
+        if not (0 < weekDay(pds[0], pds[1], pds[2]) < 6):
+            orderCompute.getLastDate(prior_date)
+        return str(prior_date) # Redundant string conversion
     
     # Returns list to act on. 0 = short, 1 = long, 2 = opened/inactive   
     def pendingMatrix(bid, latest_position, sr_levels): # latest_position tells which sr level bid touched last
